@@ -1,7 +1,7 @@
 import pandas as pd
 import requests
-import smtplib
-from email.mime.text import MIMEText
+import os
+import json
 
 # ================= CONFIG =================
 
@@ -13,9 +13,8 @@ NSE_STOCKS = {
     "ICICIBANK": "icicibank.ns"
 }
 
-EMAIL_ADDRESS = "YOUR_EMAIL@gmail.com"
-EMAIL_PASSWORD = "YOUR_GMAIL_APP_PASSWORD"
-EMAIL_RECEIVER = "RECEIVER_EMAIL@gmail.com"
+REPO = os.getenv("GITHUB_REPOSITORY")  # owner/repo
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
 # ================= INDICATOR =================
 
@@ -62,29 +61,34 @@ def analyze_market():
             signal = "SELL"
 
         report.append(
-            f"{name}\nPrice: ₹{price:.2f}\nRSI: {rsi_val:.2f}\nSignal: {signal}\n"
+            f"### {name}\n"
+            f"- Price: ₹{price:.2f}\n"
+            f"- RSI: {rsi_val:.2f}\n"
+            f"- Signal: **{signal}**\n"
         )
 
     if not report:
         return "NSE bot ran successfully, but no data was returned."
 
-    return "📈 NSE DAILY STOCK REPORT\n\n" + "\n".join(report)
+    return "## 📈 NSE Daily Stock Report\n\n" + "\n".join(report)
 
-# ================= EMAIL =================
+# ================= GITHUB ISSUE =================
 
-def send_email(message):
-    msg = MIMEText(message)
-    msg["Subject"] = "NSE Daily Stock Report"
-    msg["From"] = EMAIL_ADDRESS
-    msg["To"] = EMAIL_RECEIVER
-
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-        server.send_message(msg)
+def create_github_issue(content):
+    url = f"https://api.github.com/repos/{REPO}/issues"
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json"
+    }
+    payload = {
+        "title": "NSE Daily Stock Update",
+        "body": content
+    }
+    requests.post(url, headers=headers, data=json.dumps(payload))
 
 # ================= MAIN =================
 
 if __name__ == "__main__":
     result = analyze_market()
     print(result)
-    send_email(result)
+    create_github_issue(result)
